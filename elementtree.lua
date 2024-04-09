@@ -8,6 +8,58 @@ if not supported_lua_versions[_VERSION] then
 end
 
 --[[
+Comment
+--]]
+
+local comment_metatable <const> = {}
+local comment_private <const> = setmetatable({}, {__mode='k'})
+
+-- implementation
+local comment_internal_metatable <const> = {
+  __name = 'Comment',
+  __metatable = comment_metatable,
+  __index = function (self, key)
+    local private <const> = assert(comment_private[self], "Comment instance not recognized: " .. tostring(self))
+
+    -- content
+    if key == 'content' then
+      return private.content
+    -- unknown key
+    else
+      return nil
+    end
+  end,
+  __newindex = function (self, key, value)
+    -- XXX: support mutation or not?
+    error("Comment instances cannot be modified")
+  end,
+  __gc = function (self)
+    comment_private[self] = nil
+  end
+}
+
+-- public interface
+local Comment <const> = setmetatable({
+  create = function (content)
+    if type(content) ~= 'string' or string.len(content) == 0 then
+      error("Comment content must be a non-empty string")
+    end
+
+    local instance <const> = {}
+    comment_private[instance] = {content=content}
+
+    return setmetatable(instance, comment_internal_metatable)
+  end,
+  is = function (value)
+    return (getmetatable(value) == comment_metatable)
+  end
+}, {
+  __call = function (self, ...)
+    return self.create(...)
+  end
+})
+
+--[[
 Node
 --]]
 
@@ -19,7 +71,7 @@ local node_internal_metatable <const> = {
   __name = 'Node',
   __metatable = node_metatable,
   __index = function (self, key)
-    local private <const> = assert(node_private[self], "Node type not recognized: " .. tostring(self))
+    local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
 
     -- node tag
     if key == 'tag' then
@@ -124,7 +176,7 @@ local document_internal_metatable <const> = {
   __name = 'Document',
   __metatable = document_metatable,
   __index = function (self, key)
-    local private <const> = assert(document_private[self], "Document type not recognized: " .. tostring(self))
+    local private <const> = assert(document_private[self], "Document instance not recognized: " .. tostring(self))
 
     -- root node
     if key == 'root' then
@@ -361,8 +413,10 @@ Module Interface
 --]]
 
 local module = {
+  Comment=Comment,
   Node=Node,
   Document=Document,
+
   HTML5=HTML5,
   SVG=SVG
 }
