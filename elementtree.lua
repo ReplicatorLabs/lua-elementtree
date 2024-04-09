@@ -212,17 +212,19 @@ local document_internal_metatable <const> = {
     end
   end,
   __newindex = function (self, key, value)
-    -- XXX: support mutation or not?
-    error("Document members cannot be modified directly")
-  end,
-  __len = function (self)
-    -- TODO
-  end,
-  __pairs = function (self)
-    -- TODO
-  end,
-  __call = function(self, ...)
-    -- TODO
+    local private <const> = assert(document_private[self], "Document instance not recognized: " .. tostring(self))
+
+    -- root node
+    if key == 'root' then
+      if not Node.is(value) then
+        error("Document root must be a Node instance")
+      end
+
+      private.root = value
+    -- invalid key
+    else
+      error("Document invalid key: " .. key)
+    end
   end,
   __gc = function (self)
     document_private[self] = nil
