@@ -15,7 +15,7 @@ DOCUMENT = et.Document{
       fill='#ff0000',
       stroke='#000000',
       ['stroke-width']='2'
-    }, {}),
+    }),
     et.Node('rect', {
       x='350',
       y='350',
@@ -26,7 +26,7 @@ DOCUMENT = et.Document{
       ['fill-opacity']='0.7',
       stroke='#000000',
       ['stroke-width']='2'
-    }, {}),
+    }),
   })
 }
 

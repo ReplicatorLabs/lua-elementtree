@@ -161,6 +161,7 @@ local Node <const> = setmetatable({
       end
     end
 
+    local children <const> = children or {}
     if type(children) ~= 'table' then
       error("Node children must be nil or a table")
     end
