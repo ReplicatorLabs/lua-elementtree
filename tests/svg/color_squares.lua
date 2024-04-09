@@ -6,6 +6,7 @@ DOCUMENT = et.Document{
     width='1000',
     height='1000'
   }, {
+    et.Comment("top left square"),
     et.Node('rect', {
       x='150',
       y='150',
@@ -16,6 +17,8 @@ DOCUMENT = et.Document{
       stroke='#000000',
       ['stroke-width']='2'
     }),
+
+    et.Comment("bottom right square"),
     et.Node('rect', {
       x='350',
       y='350',

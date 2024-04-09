@@ -167,8 +167,17 @@ local Node <const> = setmetatable({
     end
 
     for _, child in ipairs(children) do
-      if not (type(child) == 'string' and string.len(child) > 0) and getmetatable(child) ~= node_metatable then
-        error("Node children must be Node instances or non-empty strings") 
+      if type(child) == 'string' then
+        if string.len(child) == 0 then
+          error("Node child is an empty string")
+        end
+      -- XXX: can't use Node.is() here since it hasn't been defined yet
+      elseif getmetatable(child) == node_metatable then
+        -- nothing to check
+      elseif Comment.is(child) then
+        -- nothing to check
+      else
+        error("Node children must be Comment instances, Node instances, or non-empty strings")
       end
     end
 
@@ -329,6 +338,20 @@ local function document_dump_string(document, settings)
         table.insert(lines, string.rep(indent, entry.level) .. line)
       end
 
+      table.remove(stack)
+      goto next_node
+    end
+
+    if Comment.is(node) then
+      table.insert(lines, string.rep(indent, entry.level) ..  '<!--')
+
+      -- XXX: refactor this out somewhere
+      -- split text content by newlines and indent each newline to the appropriate level
+      for line in string.gmatch(node.content, "([^\n]+)") do
+        table.insert(lines, string.rep(indent, entry.level) .. line)
+      end
+
+      table.insert(lines, string.rep(indent, entry.level) .. '-->')
       table.remove(stack)
       goto next_node
     end

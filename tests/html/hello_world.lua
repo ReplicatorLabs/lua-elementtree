@@ -5,12 +5,14 @@ DOCUMENT = et.Document{
     et.Node('head', {}, {
       et.Node('meta', {charset="UTF-8"}),
       et.Node('meta', {name="viewport", content="width=device-width, initial-scale=1.0"}),
-      et.Node('title', {}, {"Hello, world!"})
+      et.Node('title', {}, {"Hello, world!"}),
+      et.Comment("link stylesheets here")
     }),
     et.Node('body', {}, {
       et.Node('center', {}, {
         et.Node('h1', {}, {"Hello, world!"})
-      })
+      }),
+      et.Comment("link scripts here")
     })
   })
 }
