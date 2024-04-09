@@ -30,8 +30,19 @@ local comment_internal_metatable <const> = {
     end
   end,
   __newindex = function (self, key, value)
-    -- XXX: support mutation or not?
-    error("Comment instances cannot be modified")
+    local private <const> = assert(comment_private[self], "Comment instance not recognized: " .. tostring(self))
+
+    -- content
+    if key == 'content' then
+      if type(value) ~= 'string' or string.len(value) == 0 then
+        error("Comment content must be a non-empty string")
+      end
+
+      private.content = value
+    -- invalid key
+    else
+      error("Comment invalid key: " .. key)
+    end
   end,
   __gc = function (self)
     comment_private[self] = nil
@@ -73,7 +84,7 @@ local node_internal_metatable <const> = {
   __index = function (self, key)
     local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
 
-    -- node tag
+    -- tag
     if key == 'tag' then
       return private.tag
     -- shallow copy of attribute table
@@ -101,17 +112,31 @@ local node_internal_metatable <const> = {
     end
   end,
   __newindex = function (self, key, value)
-    -- XXX: support mutation or not?
-    error("Node members cannot be modified directly")
+    local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+
+    -- tag
+    if key == 'tag' then
+      if type(value) ~= 'string' or string.len(value) then
+        error("Node tag must be a non-empty string")
+      end
+
+      private.tag = value
+    -- attribute table
+    elseif key == 'attributes' then
+      -- TODO: implement wrapper functions
+      error("Node attributes cannot be modified directly")
+    -- children table
+    elseif key == 'children' then
+      -- TODO: implement wrapper functions
+      error("Node children cannot be modified directly")
+    -- invalid key
+    else
+      error("Node invalid key: " .. key)
+    end
   end,
   __len = function (self)
-    -- TODO
-  end,
-  __pairs = function (self)
-    -- TODO
-  end,
-  __call = function(self, ...)
-    -- TODO
+    -- emulate an array to expose children
+    return #private.children
   end,
   __gc = function (self)
     node_private[self] = nil
