@@ -24,9 +24,9 @@ local comment_internal_metatable <const> = {
     -- content
     if key == 'content' then
       return private.content
-    -- unknown key
+    -- invalid key
     else
-      return nil
+      error("Comment invalid key: " .. key)
     end
   end,
   __newindex = function (self, key, value)
@@ -106,9 +106,9 @@ local node_internal_metatable <const> = {
     -- emulate an array to expose children
     elseif math.type(key) == 'integer' then
       return private.children[key]
-    -- unknown key
+    -- invalid key
     else
-      return nil
+      error("Node invalid key: " .. key)
     end
   end,
   __newindex = function (self, key, value)
@@ -206,9 +206,9 @@ local document_internal_metatable <const> = {
     -- root node
     if key == 'root' then
       return private.root
-    -- unknown key
+    -- invalid key
     else
-      return nil
+      error("Document invalid key: " .. key)
     end
   end,
   __newindex = function (self, key, value)
