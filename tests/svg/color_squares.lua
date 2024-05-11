@@ -33,4 +33,5 @@ DOCUMENT = et.Document{
   })
 }
 
+DOCUMENT.root:freeze()
 print(et.SVG.dump_string(DOCUMENT))

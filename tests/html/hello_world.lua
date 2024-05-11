@@ -17,4 +17,5 @@ DOCUMENT = et.Document{
   })
 }
 
+DOCUMENT.root:freeze()
 print(et.HTML5.dump_string(DOCUMENT))

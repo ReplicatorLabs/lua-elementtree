@@ -15,6 +15,17 @@ local comment_metatable <const> = {}
 local comment_private <const> = setmetatable({}, {__mode='k'})
 
 -- implementation
+local comment_freeze <const> = function (self)
+  local private <const> = assert(comment_private[self], "Comment instance not recognized: " .. tostring(self))
+  private.frozen = true
+
+  return self
+end
+
+local comment_instance_methods <const> = {
+  ['freeze'] = comment_freeze
+}
+
 local comment_internal_metatable <const> = {
   __name = 'Comment',
   __metatable = comment_metatable,
@@ -24,6 +35,12 @@ local comment_internal_metatable <const> = {
     -- content
     if key == 'content' then
       return private.content
+    -- frozen
+    elseif key == 'frozen' then
+      return private.frozen
+    -- instance methods
+    elseif comment_instance_methods[key] then
+      return comment_instance_methods[key]
     -- invalid key
     else
       error("Comment invalid key: " .. key)
@@ -38,7 +55,14 @@ local comment_internal_metatable <const> = {
         error("Comment content must be a non-empty string")
       end
 
+      assert(not private.frozen, "Comment instance is frozen")
       private.content = value
+    -- frozen
+    elseif key == 'frozen' then
+      error("Comment instance cannot be frozen directly")
+    -- instance methods
+    elseif comment_instance_methods[key] then
+      error("Comment instance methods cannot be modified")
     -- invalid key
     else
       error("Comment invalid key: " .. key)
@@ -78,6 +102,107 @@ local node_metatable <const> = {}
 local node_private <const> = setmetatable({}, {__mode='k'})
 
 -- implementation
+local node_set_attribute <const> = function (self, name, value)
+  local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+  assert(not private.frozen, "Node instance is frozen")
+
+  assert(type(name) == 'string' and #name > 0, "Node attribute name must be a non-empty string")
+  assert(type(value) == 'string', "Node attribute value must be a string")
+  private.attributes[name] = value
+
+  return self
+end
+
+local node_remove_attribute <const> = function (self, name)
+  local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+  assert(not private.frozen, "Node instance is frozen")
+
+  assert(type(name) == 'string' and #name > 0, "Node attribute name must be a non-empty string")
+  private.attributes[name] = nil
+
+  return self
+end
+
+local node_insert_child <const> = function (self, child, position)
+  local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+
+  assert(
+    (type(child) == 'string' and #child > 0) or
+    getmetatable(child) == node_metatable or
+    Comment.is(child),
+    "Node children must be a Node instance, Comment instance, or non-empty string"
+  )
+
+  assert(
+    position == nil or math.type(position) == 'integer',
+    "Node children position must be nil or an integer"
+  )
+
+  if position ~= nil then
+    table.insert(private.children, position, child)
+  else
+    table.insert(private.children, child)
+  end
+    
+  return self
+end
+
+local node_remove_child <const> = function (self, position_or_child)
+  local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+  assert(not private.frozen, "Node instance is frozen")
+
+  removed_child = nil -- track if we successfully remove the requested child
+  if math.type(position_or_child) == 'integer' then
+    removed_child = table.remove(private.children, position)
+  elseif (
+    type(position_or_child) == 'string' or
+    getmetatable(position_or_child) == node_metatable or
+    Comment.is(position_or_child)
+  ) then
+    for index, child in ipairs(private.children) do
+      if child == position_or_child then
+        removed_child = table.remove(private.children, index)
+        break
+      end
+    end
+  else
+    error("Node:remove_child() expects a position or child instance")
+  end
+
+  assert(removed_child ~= nil, "Node child not found: " .. tostring(position_or_child))
+  return self
+end
+
+local node_freeze <const> = function (self)
+  local private <const> = assert(node_private[self], "Node instance not recognized: " .. tostring(self))
+
+  -- use breadth-first search to recursively freeze this node and it's children
+  local nodes <const> = {self}
+  while #nodes > 0 do
+    local node <const> = table.remove(nodes, 1)
+    local private <const> = assert(node_private[node], "Node instance not recognized: " .. tostring(node))
+    private.frozen = true
+
+    for _, child in ipairs(node.children) do
+      if getmetatable(child) == node_metatable then
+        table.insert(nodes, child)
+      elseif Comment.is(child) then
+        child:freeze()
+      end
+    end
+  end
+
+  return self
+end
+
+local node_instance_methods <const> = {
+  ['set_attribute'] = node_set_attribute,
+  ['remove_attribute'] = node_remove_attribute,
+  ['insert_child'] = node_insert_child,
+  ['remove_child'] = node_remove_child,
+  ['freeze'] = node_freeze
+}
+
 local node_internal_metatable <const> = {
   __name = 'Node',
   __metatable = node_metatable,
@@ -87,7 +212,7 @@ local node_internal_metatable <const> = {
     -- tag
     if key == 'tag' then
       return private.tag
-    -- shallow copy of attribute table
+    -- shallow copy of attributes
     elseif key == 'attributes' then
       local attributes <const> = {}
       for name, value in pairs(private.attributes) do
@@ -95,7 +220,7 @@ local node_internal_metatable <const> = {
       end
 
       return attributes
-    -- shallow copy of children array
+    -- shallow copy of children
     elseif key == 'children' then
       local children <const> = {}
       for _, child in ipairs(private.children) do
@@ -103,6 +228,12 @@ local node_internal_metatable <const> = {
       end
 
       return children
+    -- frozen
+    elseif key == 'frozen' then
+      return private.frozen
+    -- instance methods
+    elseif node_instance_methods[key] then
+      return node_instance_methods[key]
     -- emulate an array to expose children
     elseif math.type(key) == 'integer' then
       return private.children[key]
@@ -120,15 +251,20 @@ local node_internal_metatable <const> = {
         error("Node tag must be a non-empty string")
       end
 
+      assert(not private.frozen, "Node instance is frozen")
       private.tag = value
-    -- attribute table
+    -- attributes
     elseif key == 'attributes' then
-      -- TODO: implement wrapper functions
       error("Node attributes cannot be modified directly")
-    -- children table
+    -- children
     elseif key == 'children' then
-      -- TODO: implement wrapper functions
       error("Node children cannot be modified directly")
+    -- frozen
+    elseif key == 'frozen' then
+      error("Node cannot be frozen directly")
+    -- instance methods
+    elseif node_instance_methods[key] then
+      error("Node instance methods cannot be modified")
     -- invalid key
     else
       error("Node invalid key: " .. key)
@@ -159,6 +295,10 @@ local Node <const> = setmetatable({
       if type(name) ~= 'string' or type(value) ~= 'string' then
         error("Node attribute names and values must be strings")
       end
+
+      if #name == 0 then
+        error("Node attribute key must be a non-empty string")
+      end
     end
 
     local children <const> = children or {}
@@ -185,7 +325,8 @@ local Node <const> = setmetatable({
     node_private[instance] = {
       tag=tag,
       attributes=attributes,
-      children=children
+      children=children,
+      frozen=false
     }
 
     return setmetatable(instance, node_internal_metatable)
