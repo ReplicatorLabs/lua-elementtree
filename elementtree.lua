@@ -407,18 +407,262 @@ local Document <const> = setmetatable({
   end
 })
 
-local function document_load_string(value, settings)
-  if type(value) ~= 'string' or string.len(value) == 0 then
-    return nil, "value must be a non-empty string"
+--[[
+Generic Load
+--]]
+
+local function node_parse_attributes(value)
+  -- corner case: empty value
+  if string.len(value) == 0 then
+    return {}
   end
 
-  if type(settings) ~= 'table' then
-    error("document_load_string settings must be a table")
+  -- parse attribute value
+  local value_offset = 1
+  local attributes <const> = {}
+
+  while value_offset <= string.len(value) do
+    -- optional whitespace
+    local start_index, end_index = string.find(value, '^%s+', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+    end
+
+    -- required attribute name
+    local start_index, end_index = string.find(value, '^[a-zA-Z-]+', value_offset)
+    if not start_index or not end_index then
+      return nil, "invalid attribute data"
+    end
+
+    local name <const> = string.sub(value, start_index, end_index)
+    value_offset = end_index + 1
+
+    -- optional attribute value
+    -- note: you can have spaces between the name and equal sign (XXX but we may not want to support this)
+    local start_index, end_index = string.find(value, '^=%s*[\'"]', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      local outer_quote <const> = string.sub(value, end_index, end_index)
+      assert(outer_quote == '"' or outer_quote == "'")
+
+      local value_pattern <const> = '^[^' .. outer_quote .. ']*' .. outer_quote
+
+      start_index, end_index = string.find(value, value_pattern, value_offset)
+      if not start_index or not end_index then
+        return nil, "attribute value with mis-matched quotes"
+      end
+
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      local value <const> = string.sub(value, start_index, end_index - 1)
+      attributes[name] = value
+      goto next_attribute
+    else
+      attributes[name] = ''
+      goto next_attribute
+    end
+
+    -- unexpected characters
+    do
+      return nil, "unexpected character"
+    end
+
+    ::next_attribute::
   end
+
+  return attributes
+end
+
+local function document_load_string(value, settings)
+  assert(type(value) == 'string', "document_dump_string value must be a string")
+  assert(type(settings) == 'table', "document_dump_string settings must be a table")
+  local header_lines <const> = settings['header_lines'] or {}
+  local indent <const> = settings['indent'] or ' '
+  local tags <const> = settings['tags'] or {}
+
+  assert(type(header_lines) == 'table', "header_lines setting must be a table")
+  assert(type(indent) == 'string', "indent setting must be a string")
+  assert(type(tags) == 'table', "tags setting must be a table")
 
   -- TODO: implement this
-  error("loading documents is not yet implemented")
+
+  local value_offset = 1
+  local stack <const> = {}
+  local root_nodes <const> = {}
+
+  while value_offset <= string.len(value) do
+    -- whitespace
+    local start_index, end_index = string.find(value, '^%s+', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      goto next_token
+    end
+
+    -- text
+    local start_index, end_index = string.find(value, '^[^<>]+', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      local next_text_data <const> = assert(string.match(
+        string.sub(value, start_index, end_index),
+        '^%s*(.-)%s*$'
+      ))
+
+      -- corner case: we only captured whitespace
+      -- XXX: we never hit this when explicitly skipping leading whitespace above
+      if string.len(next_text_data) == 0 then
+        goto next_token
+      end
+
+      if #stack > 0 then
+        local current_node <const> = stack[#stack]
+        current_node:insert_child(next_text_data)
+      else
+        table.insert(root_nodes, next_text_data)
+      end
+
+      goto next_token
+    end
+
+    -- next element (document type, comment, tag)
+    local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      local next_tag_data <const> = string.sub(value, start_index, end_index)
+
+      -- comment
+      local comment_data <const> = string.match(next_tag_data, '^<!%-%-(.-)%-%->$')
+      if comment_data then
+        local comment_data_trimmed <const> = assert(string.match(
+          comment_data,
+          '^%s*(.-)%s*$'
+        ))
+
+        local comment <const> = Comment(comment_data_trimmed)
+        if #stack > 0 then
+          local current_node <const> = stack[#stack]
+          current_node:insert_child(comment)
+        else
+          table.insert(root_nodes, comment)
+        end
+
+        goto next_token
+      end
+
+      -- XXX: special tag
+      local special_data <const> = string.match(next_tag_data, '^<!(.-)>$')
+      if special_data then
+        -- print("SPECIAL TAG:", special_data) -- DEBUG
+        goto next_token
+      end
+
+      -- XXX: another special tag
+      local extra_data <const> = string.match(next_tag_data, '^<%?(.-)%?>$')
+      if extra_data then
+        -- print("EXTRA TAG:", extra_data) -- DEBUG
+        goto next_token
+      end
+
+      -- closing tag
+      local closing_tag <const> = string.match(next_tag_data, '^</(.-)>$')
+      if closing_tag then
+        if #stack == 0 then
+          return nil, "found naked closing tag at offset: " .. tostring(value_offset)
+        end
+
+        if string.len(closing_tag) == 0 then
+          return nil, "found empty closing tag at offset: " .. tostring(value_offset)
+        end
+
+        local current_node <const> = stack[#stack]
+        if current_node.tag ~= closing_tag then
+          return nil, "found mis-matched closing tag at offset: " .. tostring(value_offset)
+        end
+
+        local current_node <const> = table.remove(stack)
+        if #stack == 0 then
+          table.insert(root_nodes, current_node)
+        end
+
+        goto next_token
+      end
+
+      -- opening tag
+      local opening_tag <const>, opening_attributes <const> = string.match(next_tag_data, '^<(%S+)(.-)>$')
+      if opening_tag then
+        local attributes <const>, message = node_parse_attributes(opening_attributes)
+        if message then
+          return nil, "invalid tag attributes: " .. message
+        end
+
+        local node <const> = Node(opening_tag, attributes, {})
+
+        if #stack > 0 then
+          local current_node <const> = stack[#stack]
+          current_node:insert_child(node)
+        end
+
+        local tag_settings = tags[node.tag] or {}
+        local tag_is_leaf = tag_settings['leaf'] or false
+
+        if not tag_is_leaf then
+          table.insert(stack, node)
+        end
+
+        goto next_token
+      end
+
+      return nil, "invalid tag at offset: " .. tostring(value_offset)
+    end
+
+    -- unexpected character in value
+    -- note: we need to create a scope here to avoid leaking locals into the
+    -- parent block which would prevent us from jumping to the next_token label
+    do
+      return nil, "unexpected character at offset: " .. tostring(value_offset)
+    end
+
+    ::next_token::
+  end
+
+  -- DEBUG DEBUG
+  -- for index, node in ipairs(stack) do
+  --   print("STACK[", index, "]:", node.tag)
+  -- end
+
+  -- for _, node in ipairs(root_nodes) do
+  --   print("ROOT NODE:", node.tag)
+  -- end
+
+  -- XXX
+  if #stack > 0 then
+    return nil, "mis-matched opening and closing tags"
+  end
+
+  if #root_nodes == 0 then
+    return nil, "no top-level elements found"
+  end
+
+  if #root_nodes > 1 then
+    return nil, "multiple top-level elements found"
+  end
+
+  local root_node <const> = root_nodes[1]
+  return Document{root=root_node}
 end
+
+--[[
+Generic Dump
+--]]
 
 local function node_dump_attributes(node)
   assert(Node.is(node), "value must be a Node instance")
