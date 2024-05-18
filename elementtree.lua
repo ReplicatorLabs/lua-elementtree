@@ -452,11 +452,11 @@ local function document_dump_string(document, settings)
   assert(type(settings) == 'table', "document_dump_string settings must be a table")
   local header_lines <const> = settings['header_lines'] or {}
   local indent <const> = settings['indent'] or ' '
-  local leaf_tags <const> = settings['leaf_tags'] or {}
+  local tags <const> = settings['tags'] or {}
 
   assert(type(header_lines) == 'table', "header_lines setting must be a table")
   assert(type(indent) == 'string', "indent setting must be a string")
-  assert(type(leaf_tags) == 'table', "leaf_tags setting must be a table")
+  assert(type(tags) == 'table', "tags setting must be a table")
 
   -- XXX: serialize by lines for performance
   local lines <const> = {}
@@ -497,6 +497,9 @@ local function document_dump_string(document, settings)
       goto next_node
     end
 
+    local tag_settings <const> = tags[node.tag] or {}
+    local tag_is_leaf <const> = tag_settings['leaf'] or false
+
     if not entry.children then
       local parts <const> = {
         string.rep(indent, entry.level),
@@ -512,7 +515,7 @@ local function document_dump_string(document, settings)
 
       table.insert(lines, table.concat(parts, ''))
 
-      if leaf_tags[node.tag] then
+      if tag_is_leaf then
         if #node.children > 0 then
           return nil, "leaf element '" .. node.tag .. "' has children"
         end
@@ -552,20 +555,20 @@ local HTML5_SETTINGS <const> = {
   -- https://html.spec.whatwg.org/multipage/syntax.html#elements-2
   -- TODO: handle raw text elements (script, style)
   -- TODO: handle escapable raw text elements (textarea, title)
-  leaf_tags={
-    ['area']=true,
-    ['base']=true,
-    ['br']=true,
-    ['col']=true,
-    ['embed']=true,
-    ['hr']=true,
-    ['img']=true,
-    ['input']=true,
-    ['link']=true,
-    ['meta']=true,
-    ['source']=true,
-    ['track']=true,
-    ['wbr']=true
+  tags={
+    ['area']={leaf=true},
+    ['base']={leaf=true},
+    ['br']={leaf=true},
+    ['col']={leaf=true},
+    ['embed']={leaf=true},
+    ['hr']={leaf=true},
+    ['img']={leaf=true},
+    ['input']={leaf=true},
+    ['link']={leaf=true},
+    ['meta']={leaf=true},
+    ['source']={leaf=true},
+    ['track']={leaf=true},
+    ['wbr']={leaf=true}
   }
 }
 
@@ -589,7 +592,7 @@ local SVG_SETTINGS <const> = {
     -- '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
   },
   indent='  ',
-  leaf_tags={}
+  tags={}
 }
 
 function SVG.load_string(value)
