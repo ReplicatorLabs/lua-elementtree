@@ -14,7 +14,98 @@ Lua element tree serialization library.
 
 This library explicitly does not aim to support 100% of the markup language
 standards and there is no expectation it can correctly parse or recreate
-arbitrary third-party data.
+arbitrary third-party documents.
+
+## Usage
+
+TODO: document public interface
+
+```lua
+local et <const> = require('elementtree')
+
+local input_file <close> = assert(io.open('input.html', 'r'))
+local input_data <const> = assert(input_file:read('a'))
+assert(input_file:close())
+
+local document <const> = et.HTML5.load_string(input_data)
+
+-- manipulate element attributes
+local html_element <const> = document.root
+assert(html_element.tag == 'html')
+html_element:set_attribute('lang', 'en')
+assert(html_element:get_attribute('lang') == 'en')
+
+-- manipulate element children
+local head_node <const> = html_element.children[1]
+assert(head_node.tag == 'head')
+
+while #head_node.children > 0 do
+  head_node:remove_child(1)
+end
+
+-- create new elements
+head_node:insert_child(et.Node('title', {}, {'A Modified Document'}))
+head_node:insert_child(et.Node('link', {rel='stylesheet', href='style.css'}, {}))
+
+-- prevent any future changes to this element and it's children
+document.root:freeze()
+
+local output_data <const> = et.HTML5.dump_string(document)
+local output_file <close> = assert(io.open('output.html', 'w'))
+assert(output_file:write(output_data))
+assert(output_file:close())
+```
+
+See the unit and integration tests for more in-depth examples. The project
+script also has a command for loading and dumping a local file if you want to
+quickly check whether this library can interpret it:
+
+```bash
+git submodule update --init --recursive
+./project.lua check ./tests/html/hello_world.html
+```
+
+### XML
+
+You may be able to preprocess XML documents using [Tidy](https://www.html-tidy.org/)
+with the provided configuration file in order to parse them with this library:
+
+```bash
+tidy -config ./tidy-config --input-xml --output-xml yes -o clean.xml original.xml
+```
+
+### SVG
+
+You may be able to preprocess SVG documents using [Tidy](https://www.html-tidy.org/)
+with the provided configuration file in order to parse them with this library:
+
+```bash
+tidy -config ./tidy-config --input-xml yes --output-xml yes -o clean.svg original.svg
+```
+
+### HTML5
+
+You may be able to preprocess HTML5 documents using [Tidy](https://www.html-tidy.org/)
+with the provided configuration file in order to parse them with this library:
+
+```bash
+tidy -config ./tidy-config --output-html yes -o clean.html original.html
+```
+
+## Tests
+
+Run unit and integration tests:
+
+```bash
+git submodule update --init --recursive
+env LUA_ELEMENTTREE_LEAK_INTERNALS=TRUE ./project.lua test
+```
+
+Parse a local file to validate the library can correctly interpret it:
+
+```bash
+./project.lua parse ./tests/html/hello_world.html
+```
 
 ## Roadmap
 
@@ -35,33 +126,6 @@ Open to consideration:
   * [ ] Integration tests.
 * [ ] Lua 5.1 support.
   * [ ] Integration tests.
-
-## XML
-
-You may be able to preprocess XML documents using [Tidy](https://www.html-tidy.org/)
-with the provided configuration file in order to parse them with this library:
-
-```bash
-tidy -config ./tidy-config --input-xml --output-xml yes -o clean.xml original.xml
-```
-
-## SVG
-
-You may be able to preprocess SVG documents using [Tidy](https://www.html-tidy.org/)
-with the provided configuration file in order to parse them with this library:
-
-```bash
-tidy -config ./tidy-config --input-xml yes --output-xml yes -o clean.svg original.svg
-```
-
-## HTML5
-
-You may be able to preprocess HTML5 documents using [Tidy](https://www.html-tidy.org/)
-with the provided configuration file in order to parse them with this library:
-
-```bash
-tidy -config ./tidy-config --output-html yes -o clean.html original.html
-```
 
 ## References
 
