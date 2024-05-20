@@ -488,8 +488,7 @@ local function document_load_string(value, settings)
   assert(type(indent) == 'string', "indent setting must be a string")
   assert(type(tags) == 'table', "tags setting must be a table")
 
-  -- TODO: implement this
-
+  -- XXX: refactor all of this
   local value_offset = 1
   local stack <const> = {}
   local root_nodes <const> = {}
@@ -613,6 +612,28 @@ local function document_load_string(value, settings)
 
         local tag_settings = tags[node.tag] or {}
         local tag_is_leaf = tag_settings['leaf'] or false
+        local tag_is_text = tag_settings['text'] or false
+
+        -- text tags contain arbitrary text and we should look for the next
+        -- matching closing tag without parsing anything in between
+        if tag_is_text then
+          local start_index, end_index = string.find(value, '</' .. node.tag .. '>', value_offset)
+          if not start_index or not end_index then
+            return nil, "missing closing tag for text element: " .. node.tag
+          end
+
+          -- extract text content
+          -- XXX: note that we should detect how much leading whitespace to strip
+          -- from the beginning of every line of text content and remove it so
+          -- when we dump the node the output will match the original content
+          local text_content <const> = string.sub(value, value_offset, start_index - 1)
+          value_offset = end_index + 1
+
+          node:insert_child(text_content)
+
+          -- text elements are always leaves so continue processing the next token
+          goto next_token
+        end
 
         if not tag_is_leaf then
           table.insert(stack, node)
@@ -797,8 +818,6 @@ local HTML5_SETTINGS <const> = {
   header_lines={'<!DOCTYPE html>'},
   indent='  ',
   -- https://html.spec.whatwg.org/multipage/syntax.html#elements-2
-  -- TODO: handle raw text elements (script, style)
-  -- TODO: handle escapable raw text elements (textarea, title)
   tags={
     ['area']={leaf=true},
     ['base']={leaf=true},
@@ -812,7 +831,16 @@ local HTML5_SETTINGS <const> = {
     ['meta']={leaf=true},
     ['source']={leaf=true},
     ['track']={leaf=true},
-    ['wbr']={leaf=true}
+    ['wbr']={leaf=true},
+
+    -- raw text elements
+    ['script']={text=true},
+    ['style']={text=true},
+
+    -- escapable raw text elements
+    -- TODO: handle the escapable part of these?
+    ['textarea']={text=true},
+    ['title']={text=true},
   }
 }
 
