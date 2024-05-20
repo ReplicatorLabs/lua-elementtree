@@ -18,7 +18,7 @@ arbitrary third-party documents.
 
 ## Usage
 
-TODO: document public interface
+Parse, manipulate, create, and dump documents:
 
 ```lua
 local et <const> = require('elementtree')
@@ -104,7 +104,7 @@ env LUA_ELEMENTTREE_LEAK_INTERNALS=TRUE ./project.lua test
 Parse a local file to validate the library can correctly interpret it:
 
 ```bash
-./project.lua parse ./tests/html/hello_world.html
+./project.lua check ./tests/html/hello_world.html
 ```
 
 ## Roadmap
