@@ -629,7 +629,9 @@ local function document_load_string(value, settings)
           local text_content <const> = string.sub(value, value_offset, start_index - 1)
           value_offset = end_index + 1
 
-          node:insert_child(text_content)
+          if string.len(text_content) > 0 then
+            node:insert_child(text_content)
+          end
 
           -- text elements are always leaves so continue processing the next token
           goto next_token
