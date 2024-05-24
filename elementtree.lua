@@ -532,16 +532,18 @@ local function document_load_string(value, settings)
       goto next_token
     end
 
-    -- next element (document type, comment, tag)
-    local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
+    -- comment
+    local start_index, end_index = string.find(value, '^<!%-%-(.-)%-%->', value_offset)
+    -- print("start index: " .. start_index)
+    -- print("end index: " .. end_index)
+    -- print(string.sub(value, start_index, end_index))
     if start_index and end_index then
       assert(start_index == value_offset)
       value_offset = end_index + 1
-
-      local next_tag_data <const> = string.sub(value, start_index, end_index)
-
-      -- comment
-      local comment_data <const> = string.match(next_tag_data, '^<!%-%-(.-)%-%->$')
+      local comment_data <const> = string.match(
+          string.sub(value, start_index, end_index),
+          '^<!%-%-(.-)%-%->$'
+      )
       if comment_data then
         local comment_data_trimmed <const> = assert(string.match(
           comment_data,
@@ -555,9 +557,18 @@ local function document_load_string(value, settings)
         else
           table.insert(root_nodes, comment)
         end
-
-        goto next_token
       end
+
+      goto next_token
+    end
+
+    -- next element (document type, comment, tag)
+    local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      value_offset = end_index + 1
+
+      local next_tag_data <const> = string.sub(value, start_index, end_index)
 
       -- XXX: special tag
       local special_data <const> = string.match(next_tag_data, '^<!(.-)>$')
