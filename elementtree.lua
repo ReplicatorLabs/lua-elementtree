@@ -411,6 +411,7 @@ local Document <const> = setmetatable({
 Generic Load
 --]]
 
+-- https://www.w3.org/TR/2011/WD-html5-20110525/syntax.html#attributes-0
 local function node_parse_attributes(value)
   -- corner case: empty value
   if string.len(value) == 0 then
@@ -430,7 +431,8 @@ local function node_parse_attributes(value)
     end
 
     -- required attribute name
-    local start_index, end_index = string.find(value, '^[a-zA-Z-]+', value_offset)
+    -- https://stackoverflow.com/a/53563849
+    local start_index, end_index = string.find(value, '^[a-zA-Z-_]+', value_offset)
     if not start_index or not end_index then
       return nil, "invalid attribute data"
     end
