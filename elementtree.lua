@@ -536,15 +536,15 @@ local function document_load_string(value, settings)
     local start_index, end_index = string.find(value, '^<!%-%-', value_offset)
     if start_index and end_index then
       assert(start_index == value_offset)
-      local comment_start_index <const> = end_index + 1
+      local comment_data_start_index <const> = end_index + 1
       value_offset = end_index + 1
 
       local start_index, end_index = string.find(value, '%-%->', value_offset)
       if start_index and end_index then
-        local comment_end_index <const> = start_index - 1
+        local comment_data_end_index <const> = start_index - 1
         value_offset = end_index + 1
 
-        local comment_data <const> = string.sub(value, comment_start_index, comment_end_index)
+        local comment_data <const> = string.sub(value, comment_data_start_index, comment_data_end_index)
         local comment_data_trimmed <const> = assert(string.match(
           comment_data,
           '^%s*(.-)%s*$'
