@@ -540,25 +540,25 @@ local function document_load_string(value, settings)
       value_offset = end_index + 1
 
       local start_index, end_index = string.find(value, '%-%->', value_offset)
-      if start_index and end_index then
-        local comment_data_end_index <const> = start_index - 1
-        value_offset = end_index + 1
-
-        local comment_data <const> = string.sub(value, comment_data_start_index, comment_data_end_index)
-        local comment_data_trimmed <const> = assert(string.match(
-          comment_data,
-          '^%s*(.-)%s*$'
-        ))
-
-        local comment <const> = Comment(comment_data_trimmed)
-        if #stack > 0 then
-          local current_node <const> = stack[#stack]
-          current_node:insert_child(comment)
-        else
-          table.insert(root_nodes, comment)
-        end
-      else
+      if not start_index or not end_index then
         return nil, "failed to find closing comment tag at offset: " .. tostring(value_offset)
+      end
+
+      local comment_data_end_index <const> = start_index - 1
+      value_offset = end_index + 1
+
+      local comment_data <const> = string.sub(value, comment_data_start_index, comment_data_end_index)
+      local comment_data_trimmed <const> = assert(string.match(
+        comment_data,
+        '^%s*(.-)%s*$'
+      ))
+
+      local comment <const> = Comment(comment_data_trimmed)
+      if #stack > 0 then
+        local current_node <const> = stack[#stack]
+        current_node:insert_child(comment)
+      else
+        table.insert(root_nodes, comment)
       end
 
       goto next_token
