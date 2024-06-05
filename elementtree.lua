@@ -76,8 +76,8 @@ local comment_internal_metatable <const> = {
 -- public interface
 local Comment <const> = setmetatable({
   create = function (content)
-    if type(content) ~= 'string' or string.len(content) == 0 then
-      error("Comment content must be a non-empty string")
+    if type(content) ~= 'string' then
+      error("Comment content must be a string")
     end
 
     local instance <const> = {}
@@ -533,36 +533,36 @@ local function document_load_string(value, settings)
     end
 
     -- comment
-    local start_index_begin_comment_tag, end_index_begin_comment_tag = string.find(value, '^<!%-%-', value_offset)
-    if start_index_begin_comment_tag and end_index_begin_comment_tag then
-      assert(start_index_begin_comment_tag == value_offset)
-      value_offset = end_index_begin_comment_tag + 1
+    local start_index, end_index = string.find(value, '^<!%-%-', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      local comment_start_index <const> = end_index + 1
+      value_offset = end_index + 1
 
-      local start_index_end_comment_tag, end_index_end_comment_tag = string.find(value, '%-%->', value_offset)
-      assert(start_index_end_comment_tag)
-      assert(end_index_end_comment_tag)
-      if start_index_end_comment_tag and end_index_end_comment_tag then
-        value_offset = end_index_end_comment_tag + 1
+      local start_index, end_index = string.find(value, '%-%->', value_offset)
+      if start_index and end_index then
+        local comment_end_index <const> = start_index - 1
+        value_offset = end_index + 1
 
-        comment_data = string.sub(value, end_index_begin_comment_tag, start_index_end_comment_tag)
-        if comment_data then
-          local comment_data_trimmed <const> = assert(string.match(
-            comment_data,
-            '^%s*(.-)%s*$'
-          ))
+        local comment_data <const> = string.sub(value, comment_start_index, comment_end_index)
+        local comment_data_trimmed <const> = assert(string.match(
+          comment_data,
+          '^%s*(.-)%s*$'
+        ))
 
-          local comment <const> = Comment(comment_data_trimmed)
-          if #stack > 0 then
-            local current_node <const> = stack[#stack]
-            current_node:insert_child(comment)
-          else
-            table.insert(root_nodes, comment)
-          end
+        local comment <const> = Comment(comment_data_trimmed)
+        if #stack > 0 then
+          local current_node <const> = stack[#stack]
+          current_node:insert_child(comment)
+        else
+          table.insert(root_nodes, comment)
         end
+      else
+        return nil, "failed to find closing comment tag at offset: " .. tostring(value_offset)
       end
 
-    goto next_token
-  end
+      goto next_token
+    end
 
     -- next element (document type, comment, tag)
     local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
