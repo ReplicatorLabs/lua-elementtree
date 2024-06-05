@@ -76,8 +76,8 @@ local comment_internal_metatable <const> = {
 -- public interface
 local Comment <const> = setmetatable({
   create = function (content)
-    if type(content) ~= 'string' or string.len(content) == 0 then
-      error("Comment content must be a non-empty string")
+    if type(content) ~= 'string' then
+      error("Comment content must be a string")
     end
 
     local instance <const> = {}
@@ -532,6 +532,38 @@ local function document_load_string(value, settings)
       goto next_token
     end
 
+    -- comment
+    local start_index, end_index = string.find(value, '^<!%-%-', value_offset)
+    if start_index and end_index then
+      assert(start_index == value_offset)
+      local comment_data_start_index <const> = end_index + 1
+      value_offset = end_index + 1
+
+      local start_index, end_index = string.find(value, '%-%->', value_offset)
+      if not start_index or not end_index then
+        return nil, "failed to find closing comment tag at offset: " .. tostring(value_offset)
+      end
+
+      local comment_data_end_index <const> = start_index - 1
+      value_offset = end_index + 1
+
+      local comment_data <const> = string.sub(value, comment_data_start_index, comment_data_end_index)
+      local comment_data_trimmed <const> = assert(string.match(
+        comment_data,
+        '^%s*(.-)%s*$'
+      ))
+
+      local comment <const> = Comment(comment_data_trimmed)
+      if #stack > 0 then
+        local current_node <const> = stack[#stack]
+        current_node:insert_child(comment)
+      else
+        table.insert(root_nodes, comment)
+      end
+
+      goto next_token
+    end
+
     -- next element (document type, comment, tag)
     local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
     if start_index and end_index then
@@ -539,25 +571,6 @@ local function document_load_string(value, settings)
       value_offset = end_index + 1
 
       local next_tag_data <const> = string.sub(value, start_index, end_index)
-
-      -- comment
-      local comment_data <const> = string.match(next_tag_data, '^<!%-%-(.-)%-%->$')
-      if comment_data then
-        local comment_data_trimmed <const> = assert(string.match(
-          comment_data,
-          '^%s*(.-)%s*$'
-        ))
-
-        local comment <const> = Comment(comment_data_trimmed)
-        if #stack > 0 then
-          local current_node <const> = stack[#stack]
-          current_node:insert_child(comment)
-        else
-          table.insert(root_nodes, comment)
-        end
-
-        goto next_token
-      end
 
       -- XXX: special tag
       local special_data <const> = string.match(next_tag_data, '^<!(.-)>$')
@@ -677,11 +690,8 @@ local function document_load_string(value, settings)
     return nil, "no top-level elements found"
   end
 
-  if #root_nodes > 1 then
-    return nil, "multiple top-level elements found"
-  end
-
-  local root_node <const> = root_nodes[1]
+  -- taking last node from root nodes if there is more than one
+  local root_node <const> = root_nodes[#root_nodes]
   return Document{root=root_node}
 end
 
