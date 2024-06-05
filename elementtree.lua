@@ -533,34 +533,36 @@ local function document_load_string(value, settings)
     end
 
     -- comment
-    local start_index, end_index = string.find(value, '^<!%-%-(.-)%-%->', value_offset)
-    -- print("start index: " .. start_index)
-    -- print("end index: " .. end_index)
-    -- print(string.sub(value, start_index, end_index))
-    if start_index and end_index then
-      assert(start_index == value_offset)
-      value_offset = end_index + 1
-      local comment_data <const> = string.match(
-          string.sub(value, start_index, end_index),
-          '^<!%-%-(.-)%-%->$'
-      )
-      if comment_data then
-        local comment_data_trimmed <const> = assert(string.match(
-          comment_data,
-          '^%s*(.-)%s*$'
-        ))
+    local start_index_begin_comment_tag, end_index_begin_comment_tag = string.find(value, '^<!%-%-', value_offset)
+    if start_index_begin_comment_tag and end_index_begin_comment_tag then
+      assert(start_index_begin_comment_tag == value_offset)
+      value_offset = end_index_begin_comment_tag + 1
 
-        local comment <const> = Comment(comment_data_trimmed)
-        if #stack > 0 then
-          local current_node <const> = stack[#stack]
-          current_node:insert_child(comment)
-        else
-          table.insert(root_nodes, comment)
+      local start_index_end_comment_tag, end_index_end_comment_tag = string.find(value, '%-%->', value_offset)
+      assert(start_index_end_comment_tag)
+      assert(end_index_end_comment_tag)
+      if start_index_end_comment_tag and end_index_end_comment_tag then
+        value_offset = end_index_end_comment_tag + 1
+
+        comment_data = string.sub(value, end_index_begin_comment_tag, start_index_end_comment_tag)
+        if comment_data then
+          local comment_data_trimmed <const> = assert(string.match(
+            comment_data,
+            '^%s*(.-)%s*$'
+          ))
+
+          local comment <const> = Comment(comment_data_trimmed)
+          if #stack > 0 then
+            local current_node <const> = stack[#stack]
+            current_node:insert_child(comment)
+          else
+            table.insert(root_nodes, comment)
+          end
         end
       end
 
-      goto next_token
-    end
+    goto next_token
+  end
 
     -- next element (document type, comment, tag)
     local start_index, end_index = string.find(value, '^<[^>]*>', value_offset)
@@ -688,11 +690,8 @@ local function document_load_string(value, settings)
     return nil, "no top-level elements found"
   end
 
-  if #root_nodes > 1 then
-    return nil, "multiple top-level elements found"
-  end
-
-  local root_node <const> = root_nodes[1]
+  -- taking last node from root nodes if there is more than one
+  local root_node <const> = root_nodes[#root_nodes]
   return Document{root=root_node}
 end
 
