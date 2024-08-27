@@ -97,7 +97,6 @@ tidy -config ./tidy-config --output-html yes -o clean.html original.html
 Run unit and integration tests:
 
 ```bash
-git submodule update --init --recursive
 env LUA_ELEMENTTREE_LEAK_INTERNALS=TRUE ./project.lua test
 ```
 
