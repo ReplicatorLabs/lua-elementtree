@@ -1,0 +1,15 @@
+output-encoding: utf8
+output-bom: no
+
+drop-empty-elements: no
+drop-empty-paras: no
+
+fix-style-tags: no
+
+merge-emphasis: no
+
+indent: auto
+sort-attributes: alpha
+tidy-mark: no
+vertical-space: auto
+wrap: 0
