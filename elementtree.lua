@@ -432,7 +432,8 @@ local function node_parse_attributes(value)
 
     -- required attribute name
     -- https://stackoverflow.com/a/53563849
-    local start_index, end_index = string.find(value, '^[a-zA-Z-_]+', value_offset)
+    -- https://dom.spec.whatwg.org/#valid-attribute-local-name
+    local start_index, end_index = string.find(value, '^[a-zA-Z0-9-_]+', value_offset)
     if not start_index or not end_index then
       return nil, "invalid attribute data"
     end
