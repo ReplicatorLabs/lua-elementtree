@@ -639,12 +639,15 @@ local function document_load_string(value, settings)
           end
 
           -- extract text content
+          local raw_text_content <const> = string.sub(value, value_offset, start_index - 1)
+          value_offset = end_index + 1
+
           -- XXX: note that we should detect how much leading whitespace to strip
           -- from the beginning of every line of text content and remove it so
           -- when we dump the node the output will match the original content
-          local text_content <const> = string.sub(value, value_offset, start_index - 1)
-          value_offset = end_index + 1
+          local text_content <const> = string.match(raw_text_content, '^%s*(.-)%s*$')
 
+          -- XXX: should we track empty text nodes?
           if string.len(text_content) > 0 then
             node:insert_child(text_content)
           end
